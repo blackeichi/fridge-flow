@@ -19,17 +19,15 @@
 ## 현재 결정된 방향
 
 - 개인·지인용 Android 앱(Expo + React Native)
-- 초대된 Google 계정만 로그인·최초 가입 가능
-- Neon PostgreSQL을 사용자 데이터의 서버 원본으로 사용하고 계정별 데이터를 분리
-- 기기 내 SQLite `user.db`는 즉시 표시·오프라인 작업·동기화 대기열로 사용
-- `.ffbackup` 파일을 이용한 수동·자동 보조 백업과 계정 단위 전체 교체 복원
+- Google 로그인으로 로컬 데이터 소유 계정을 연결하고 AI 접근을 검증
+- 기기 내 SQLite `user.db`를 사용자 데이터의 유일한 실행 원본으로 사용
+- 중앙 DB, 서버 CRUD와 자동 다중 기기 동기화는 제공하지 않음
+- `.ffbackup`을 Android 시스템 파일 선택기로 Google Drive에 내보내고 전체 교체 복원
 - 공공 레시피·영양 데이터는 읽기 전용 `catalog.db`로 앱에 포함
-- Python FastAPI는 인증, 계정별 CRUD·동기화와 AI proxy를 제공
-- FastAPI는 Render Free Web Service에 배포하고 Git 자동 배포를 사용
-- OpenAI API key와 Neon connection string은 Render 환경변수에만 저장
-- Neon PostgreSQL에는 사용자 계정, 초대 목록, 동기화 상태와 AI quota 운영 데이터를 저장
-- AI endpoint는 요청량·token·동시성·일·월 한도와 kill switch로 비용 제한
-- Firebase App Distribution으로 공식 빌드를 전달하고 서버 초대 목록으로 실제 사용자를 제한
+- Node.js TypeScript Netlify Functions는 Google token 검증과 OpenAI 호출만 제공
+- OpenAI key, 허용 Google 계정과 모델명은 Netlify 환경변수에만 저장
+- AI endpoint는 검증된 계정 allowlist, IP rate limit, 고정 모델·token 한도와 kill switch로 보호
+- Firebase App Distribution으로 공식 APK 전달 대상을 제한
 - 규칙 기반 후보 검색·수량 계산과 AI 기반 설명·개인화를 분리
 - 자동 재료 차감은 항상 사용자 확인과 실행 취소를 제공
 
