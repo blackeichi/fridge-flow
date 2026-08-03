@@ -27,3 +27,28 @@
 - 규칙 기반 후보 검색·수량 계산과 AI 기반 설명·개인화를 분리
 - 자동 재료 차감은 항상 사용자 확인과 실행 취소를 제공
 
+## 개발 환경
+
+- Node.js 22 LTS
+- npm 10 이상
+- Expo SDK 57
+- React Native 0.86.2
+- React 19.2.3
+
+```bash
+npm ci
+npm run start
+```
+
+Android 에뮬레이터 또는 연결된 기기에서 실행하려면 `npm run android`를 사용합니다.
+
+## 검증
+
+```bash
+npm run validate
+```
+
+위 명령은 포맷, lint, TypeScript typecheck와 Jest/RNTL 테스트를 순서대로 실행합니다.
+
+공개 가능한 앱 환경변수의 예시는 `apps/mobile/.env.example`에 두며, API key나 token 같은 secret은 `EXPO_PUBLIC_*` 변수에 넣지 않습니다.
+

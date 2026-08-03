@@ -1,0 +1,26 @@
+{
+  "name": "fridge-flow",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22 <25",
+    "npm": ">=10"
+  },
+  "scripts": {
+    "android": "npm run android --workspace @fridge-flow/mobile",
+    "start": "npm run start --workspace @fridge-flow/mobile",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "npm run lint --workspace @fridge-flow/mobile",
+    "test": "npm run test --workspace @fridge-flow/mobile",
+    "typecheck": "npm run typecheck --workspace @fridge-flow/mobile",
+    "validate": "npm run format:check && npm run lint && npm run typecheck && npm run test"
+  },
+  "devDependencies": {
+    "prettier": "3.9.6"
+  }
+}

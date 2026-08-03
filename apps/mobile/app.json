@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "Fridge Flow",
+    "slug": "fridge-flow",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "fridge-flow",
+    "userInterfaceStyle": "automatic",
+    "android": {
+      "package": "com.fridgeflow.app",
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F4F7F1"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
