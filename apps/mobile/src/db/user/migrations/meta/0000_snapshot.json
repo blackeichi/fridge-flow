@@ -1,0 +1,357 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "fce5dcce-3e08-45b9-a3f3-542144aa0e2c",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "tables": {
+    "app_profiles": {
+      "name": "app_profiles",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "locale": {
+          "name": "locale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'ko-KR'"
+        },
+        "timezone": {
+          "name": "timezone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "preferences": {
+          "name": "preferences",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'{}'"
+        },
+        "allergy_flags": {
+          "name": "allergy_flags",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'[]'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "app_profiles_singleton_id_check": {
+          "name": "app_profiles_singleton_id_check",
+          "value": "\"app_profiles\".\"id\" = 'default'"
+        }
+      }
+    },
+    "containers": {
+      "name": "containers",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "space_id": {
+          "name": "space_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "parent_id": {
+          "name": "parent_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "grid_row": {
+          "name": "grid_row",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "grid_column": {
+          "name": "grid_column",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "grid_width": {
+          "name": "grid_width",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "grid_height": {
+          "name": "grid_height",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "containers_space_id_idx": {
+          "name": "containers_space_id_idx",
+          "columns": ["space_id"],
+          "isUnique": false
+        },
+        "containers_parent_id_idx": {
+          "name": "containers_parent_id_idx",
+          "columns": ["parent_id"],
+          "isUnique": false
+        },
+        "containers_sort_order_idx": {
+          "name": "containers_sort_order_idx",
+          "columns": ["space_id", "sort_order"],
+          "isUnique": false
+        },
+        "containers_id_space_id_unique": {
+          "name": "containers_id_space_id_unique",
+          "columns": ["id", "space_id"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "containers_space_id_storage_spaces_id_fk": {
+          "name": "containers_space_id_storage_spaces_id_fk",
+          "tableFrom": "containers",
+          "tableTo": "storage_spaces",
+          "columnsFrom": ["space_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "containers_parent_same_space_fk": {
+          "name": "containers_parent_same_space_fk",
+          "tableFrom": "containers",
+          "tableTo": "containers",
+          "columnsFrom": ["parent_id", "space_id"],
+          "columnsTo": ["id", "space_id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "containers_name_check": {
+          "name": "containers_name_check",
+          "value": "length(trim(\"containers\".\"name\")) BETWEEN 1 AND 60"
+        },
+        "containers_grid_row_check": {
+          "name": "containers_grid_row_check",
+          "value": "\"containers\".\"grid_row\" >= 0"
+        },
+        "containers_grid_column_check": {
+          "name": "containers_grid_column_check",
+          "value": "\"containers\".\"grid_column\" >= 0"
+        },
+        "containers_grid_width_check": {
+          "name": "containers_grid_width_check",
+          "value": "\"containers\".\"grid_width\" > 0"
+        },
+        "containers_grid_height_check": {
+          "name": "containers_grid_height_check",
+          "value": "\"containers\".\"grid_height\" > 0"
+        },
+        "containers_sort_order_check": {
+          "name": "containers_sort_order_check",
+          "value": "\"containers\".\"sort_order\" >= 0"
+        },
+        "containers_parent_self_check": {
+          "name": "containers_parent_self_check",
+          "value": "\"containers\".\"parent_id\" IS NULL OR \"containers\".\"parent_id\" <> \"containers\".\"id\""
+        }
+      }
+    },
+    "local_owners": {
+      "name": "local_owners",
+      "columns": {
+        "owner_sub_sha256": {
+          "name": "owner_sub_sha256",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "last_login_at": {
+          "name": "last_login_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "local_owners_owner_hash_check": {
+          "name": "local_owners_owner_hash_check",
+          "value": "length(\"local_owners\".\"owner_sub_sha256\") = 64 AND \"local_owners\".\"owner_sub_sha256\" NOT GLOB '*[^0-9a-f]*'"
+        }
+      }
+    },
+    "storage_spaces": {
+      "name": "storage_spaces",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "storage_spaces_name_unique": {
+          "name": "storage_spaces_name_unique",
+          "columns": ["name"],
+          "isUnique": true
+        },
+        "storage_spaces_sort_order_idx": {
+          "name": "storage_spaces_sort_order_idx",
+          "columns": ["sort_order"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "storage_spaces_name_check": {
+          "name": "storage_spaces_name_check",
+          "value": "length(trim(\"storage_spaces\".\"name\")) BETWEEN 1 AND 60"
+        },
+        "storage_spaces_type_check": {
+          "name": "storage_spaces_type_check",
+          "value": "\"storage_spaces\".\"type\" IN ('refrigerator', 'freezer', 'pantry')"
+        },
+        "storage_spaces_sort_order_check": {
+          "name": "storage_spaces_sort_order_check",
+          "value": "\"storage_spaces\".\"sort_order\" >= 0"
+        }
+      }
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}

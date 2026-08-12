@@ -2,7 +2,7 @@
 
 - 문서 상태: 초안 v0.6
 - 작성일: 2026-07-29
-- 최종 수정일: 2026-08-02
+- 최종 수정일: 2026-08-03
 - 전제: `PRODUCT_SPEC.md`의 개인·지인용 Android MVP를 구현하기 위한 현재 설계
 
 ## 1. 설계 목표
@@ -53,9 +53,9 @@ Fridge Flow 서버에는 회원, 재고, 식단, 백업 파일과 동기화 상�
 |---|---|---|
 | 프레임워크 | Expo SDK 57 + React Native 0.86 + React 19.2.3 + TypeScript | Android 개발과 APK 배포가 간편하고 Expo 공식 호환 조합 유지 |
 | 라우팅 | Expo Router | 파일 기반 라우팅과 typed route |
-| 사용자 DB | expo-sqlite `user.db` | 로컬 transaction, migration과 재시작 후 유지 |
+| 사용자 DB | expo-sqlite 57.0.1 `user.db` | 로컬 transaction, migration과 재시작 후 유지 |
 | 카탈로그 DB | 번들 SQLite `catalog.db` | 공공 레시피·영양 정보를 오프라인 조회 |
-| DB 접근 | Drizzle ORM + repository 계층 | typed schema·migration·live query와 UI/SQL 분리 |
+| DB 접근 | Drizzle ORM 0.45.2 + Drizzle Kit 0.31.10 + repository 계층 | typed schema·migration·live query와 UI/SQL 분리 |
 | 원격 요청 | `fetch` + 작은 AI client adapter | 원격 상태가 AI 요청뿐이므로 별도 서버 cache를 최소화 |
 | UI 상태 | Zustand + React state | 화면 간 비영속 UI 상태와 컴포넌트 로컬 상태 분리 |
 | 폼/검증 | React Hook Form + Zod | 빠른 입력과 백업·AI 응답 검증 |
@@ -151,6 +151,12 @@ fridge-flow/
 앱과 함수는 `packages/contracts`의 요청·응답 schema를 공유한다. 보안상 클라이언트 검증을 신뢰하지 않으며 Function에서 항상 같은 schema와 하드 조건을 다시 검사한다.
 
 ## 5. 로컬 데이터 모델
+
+### 5.0 현재 구현 범위
+
+2026-08-03 기준 `user.db` 기반 구현에는 `LocalOwner`, `AppProfile`, `StorageSpace`, `Container` schema와 첫 migration이 포함된다. 앱 시작 시 migration gate를 통과한 뒤에만 화면을 표시하며 SQLite foreign key, WAL과 change listener를 활성화한다.
+
+공간 생성 write는 feature repository와 Drizzle persistence adapter를 통해 transaction으로 실행한다. migration SQL은 테스트 전용 SQLite 엔진에서 제약조건과 cascade 동작을 검증한다. `InventoryBatch`, `InventoryTransaction`을 포함한 나머지 사용자 엔터티는 후속 기능 구현에서 별도 migration으로 추가한다.
 
 ### 5.1 `user.db` 원본
 
