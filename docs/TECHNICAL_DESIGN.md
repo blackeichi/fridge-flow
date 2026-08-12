@@ -1,8 +1,8 @@
 # Fridge Flow 기술 설계서
 
-- 문서 상태: 초안 v0.6
+- 문서 상태: 초안 v0.7
 - 작성일: 2026-07-29
-- 최종 수정일: 2026-08-03
+- 최종 수정일: 2026-08-12
 - 전제: `PRODUCT_SPEC.md`의 개인·지인용 Android MVP를 구현하기 위한 현재 설계
 
 ## 1. 설계 목표
@@ -61,7 +61,7 @@ Fridge Flow 서버에는 회원, 재고, 식단, 백업 파일과 동기화 상�
 | 폼/검증 | React Hook Form + Zod | 빠른 입력과 백업·AI 응답 검증 |
 | 제스처 | Gesture Handler + Reanimated | 컨테이너·재료 드래그 |
 | 파일 접근 | Android Storage Access Framework | Drive를 포함한 문서 제공자로 백업 내보내기·가져오기 |
-| 인증 저장 | expo-secure-store + Google auth client | ID token을 일반 SQLite와 분리 |
+| 인증 저장 | react-native-nitro-google-signin 1.3.0 | Android Credential Manager와 인증 client의 암호화 저장소에서 ID token을 관리하고 일반 SQLite와 분리 |
 | 테스트 | Jest + `jest-expo` + RNTL, Maestro | 단위·컴포넌트·Android E2E |
 | 빌드 | EAS Build `development`·`preview` profiles | 개발 build와 서명된 배포용 APK 생성 |
 
@@ -71,6 +71,8 @@ Zustand는 냉장고 배치 편집, 선택, 필터와 식단 편집처럼 여러
 
 - [Expo SQLite](https://docs.expo.dev/versions/latest/sdk/sqlite/)
 - [Expo Router](https://docs.expo.dev/router/introduction/)
+- [Expo Google authentication](https://docs.expo.dev/guides/google-authentication/)
+- [React Native Nitro Google Sign-In](https://react-native-nitro-google-sign-in.github.io/)
 - [Android Storage Access Framework](https://developer.android.com/training/data-storage/shared/documents-files)
 - [Drizzle ORM Expo SQLite](https://orm.drizzle.team/docs/sqlite/connect-expo-sqlite)
 
@@ -154,9 +156,11 @@ fridge-flow/
 
 ### 5.0 현재 구현 범위
 
-2026-08-03 기준 `user.db` 기반 구현에는 `LocalOwner`, `AppProfile`, `StorageSpace`, `Container` schema와 첫 migration이 포함된다. 앱 시작 시 migration gate를 통과한 뒤에만 화면을 표시하며 SQLite foreign key, WAL과 change listener를 활성화한다.
+2026-08-12 기준 `user.db` 기반 구현에는 `LocalOwner`, `AppProfile`, `StorageSpace`, `Container` schema와 첫 migration이 포함된다. 앱 시작 시 migration gate를 통과한 뒤에만 화면을 표시하며 SQLite foreign key, WAL과 change listener를 활성화한다.
 
 공간 생성 write는 feature repository와 Drizzle persistence adapter를 통해 transaction으로 실행한다. migration SQL은 테스트 전용 SQLite 엔진에서 제약조건과 cascade 동작을 검증한다. `InventoryBatch`, `InventoryTransaction`을 포함한 나머지 사용자 엔터티는 후속 기능 구현에서 별도 migration으로 추가한다.
+
+Google 로그인 client, 로그인 gate와 `LocalOwner` binding repository도 구현되었다. 첫 로그인은 Google `sub`의 SHA-256만 `user.db`에 기록하고, 이후 다른 hash가 들어오면 DB를 열지 않은 채 인증 session을 해제한다. Google ID token과 raw `sub`는 DB에 쓰지 않는다. 실제 Google Cloud의 Web/Android OAuth client, 서명 인증서 SHA-1과 development build 기기 검증은 배포 환경 설정 작업으로 남아 있다.
 
 ### 5.1 `user.db` 원본
 
@@ -225,6 +229,14 @@ fridge-flow/
 6. 로그인 상태를 갱신할 수 없는 오프라인 상황에서는 이미 연결된 기기의 핵심 로컬 기능을 허용한다. AI 호출에는 최신 token이 필요하다.
 
 이 로컬 소유자 확인은 우발적인 계정 전환 노출을 막는 UX 방어다. 변조된 APK나 root 기기까지 막는 원격 보안 경계는 아니다.
+
+#### 구현 결정 기록 — 2026-08-12
+
+- Android의 deprecated legacy Google Sign-In SDK 대신 Credential Manager 기반 `react-native-nitro-google-signin`을 사용한다.
+- 패키지는 MIT 라이선스이며 React Native 0.86 요구사항을 충족한다. 직접 의존성은 약 0.55MB unpacked이고 필수 peer인 `react-native-nitro-modules`도 약 0.57MB unpacked다.
+- Google 인증 client가 보관하는 session과 token을 다시 `expo-secure-store`에 복제하지 않는다. 앱은 메모리의 로그인 결과에서 `sub`를 해시하고, 일반 SQLite에는 hash만 저장한다.
+- 네이티브 모듈이므로 Expo Go는 지원하지 않고 EAS 또는 로컬 development build로 검증한다.
+- `EXPO_PUBLIC_GOOGLE_SERVER_CLIENT_ID`에는 공개 가능한 Web OAuth client ID만 넣는다. secret은 앱 환경변수에 두지 않는다.
 
 ### 6.2 Netlify Function 인증·인가
 
