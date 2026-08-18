@@ -56,6 +56,18 @@
 - 변경 후 해당 범위의 lint, typecheck, unit/integration test를 실행한다.
 - 마이그레이션은 전진 호환과 기존 로컬 데이터 보존을 우선한다. 파괴적 마이그레이션에는 백업·복구 경로가 필요하다.
 
+## Git과 PR 병합
+
+- 기능과 문서 변경은 작업 브랜치에서 수행하고 `main` 대상 PR로 검증한다.
+- 사용자가 별도 방식을 지정하지 않으면 PR은 항상 **Squash and merge**로 병합한다. 일반 merge commit이나 rebase merge로 임의 대체하지 않는다.
+- 병합 전에 대상 저장소, base `main`, head 브랜치, 최신 head SHA, 충돌 여부와 필수 CI 성공을 확인한다.
+- squash commit 제목은 `type(scope): summary` 또는 `type: summary` 형태의 Conventional Commit 한 줄로 정리한다. PR 번호 표기는 허용하지만 `Merge pull request ...` 같은 자동 merge commit 제목은 남기지 않는다.
+- squash commit 본문에는 변경 이유와 중요한 제약만 간결하게 남기며, 템플릿 문구·중복 설명·작업 과정은 제거한다.
+- 병합 대상에 여러 중간 커밋이 있어도 `main`에는 정돈된 단일 커밋만 남긴다.
+- squash merge를 사용할 수 없거나 CI가 실패했거나 head SHA가 바뀌면 다른 방식으로 병합하지 말고 중단한 뒤 상태를 사용자에게 알린다.
+- 병합 완료 후 PR이 squash로 병합되었는지, `main`의 최종 커밋 제목과 SHA를 확인한다.
+- 원격 작업 브랜치는 사용자가 삭제를 요청한 경우에만 삭제한다.
+
 ## 문서 유지
 
 - 기능 범위나 사용자 흐름 변경: `docs/PRODUCT_SPEC.md`
