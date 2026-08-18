@@ -2,7 +2,7 @@
 
 - 문서 상태: 초안 v0.7
 - 작성일: 2026-07-29
-- 최종 수정일: 2026-08-12
+- 최종 수정일: 2026-08-18
 - 전제: `PRODUCT_SPEC.md`의 개인·지인용 Android MVP를 구현하기 위한 현재 설계
 
 ## 1. 설계 목표
@@ -156,9 +156,9 @@ fridge-flow/
 
 ### 5.0 현재 구현 범위
 
-2026-08-12 기준 `user.db` 기반 구현에는 `LocalOwner`, `AppProfile`, `StorageSpace`, `Container` schema와 첫 migration이 포함된다. 앱 시작 시 migration gate를 통과한 뒤에만 화면을 표시하며 SQLite foreign key, WAL과 change listener를 활성화한다.
+2026-08-18 기준 `user.db` 기반 구현에는 `LocalOwner`, `AppProfile`, `StorageSpace`, `Container`, `CustomIngredient`, `InventoryBatch` schema와 migration이 포함된다. 앱 시작 시 migration gate를 통과한 뒤에만 화면을 표시하며 SQLite foreign key, WAL과 change listener를 활성화한다.
 
-공간 생성 write는 feature repository와 Drizzle persistence adapter를 통해 transaction으로 실행한다. migration SQL은 테스트 전용 SQLite 엔진에서 제약조건과 cascade 동작을 검증한다. `InventoryBatch`, `InventoryTransaction`을 포함한 나머지 사용자 엔터티는 후속 기능 구현에서 별도 migration으로 추가한다.
+공간과 재고 묶음 생성 write는 feature repository와 Drizzle persistence adapter를 통해 transaction으로 실행한다. 재고 묶음은 카탈로그 또는 사용자 정의 재료 참조, 위치, 수량과 단위, 포장 수량, 구매·개봉·유통기한과 상태를 저장한다. `quantity_known=false`이면 임의의 0 대신 `amount=null`을 보존하며, 사용 가능한 재고 목록은 유통기한이 있는 묶음을 날짜순으로 먼저 반환한다. migration SQL은 테스트 전용 SQLite 엔진에서 수량, 참조 무결성과 삭제 제한을 검증한다. `InventoryTransaction`을 포함한 나머지 사용자 엔터티는 후속 기능 구현에서 별도 migration으로 추가한다.
 
 Google 로그인 client, 로그인 gate와 `LocalOwner` binding repository도 구현되었다. 첫 로그인은 Google `sub`의 SHA-256만 `user.db`에 기록하고, 이후 다른 hash가 들어오면 DB를 열지 않은 채 인증 session을 해제한다. Google ID token과 raw `sub`는 DB에 쓰지 않는다. 실제 Google Cloud의 Web/Android OAuth client, 서명 인증서 SHA-1과 development build 기기 검증은 배포 환경 설정 작업으로 남아 있다.
 

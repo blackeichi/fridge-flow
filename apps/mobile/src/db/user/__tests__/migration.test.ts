@@ -36,6 +36,8 @@ describe('user.db initial migration', () => {
     expect(rows.map(({ name }) => name)).toEqual([
       'app_profiles',
       'containers',
+      'custom_ingredients',
+      'inventory_batches',
       'local_owners',
       'storage_spaces',
     ]);
@@ -176,6 +178,91 @@ describe('user.db initial migration', () => {
         '2026-08-03T00:00:00.000Z',
         '2026-08-03T00:00:00.000Z',
       ),
+    ).toThrow();
+
+    database.close();
+  });
+
+  it('enforces inventory quantity and container constraints', () => {
+    const database = createMigratedDatabase();
+    database
+      .prepare(
+        'INSERT INTO storage_spaces (id, name, type, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+      )
+      .run(
+        '00000000-0000-4000-8000-000000000001',
+        '주방 냉장고',
+        'refrigerator',
+        '2026-08-18T00:00:00.000Z',
+        '2026-08-18T00:00:00.000Z',
+      );
+    database
+      .prepare(
+        'INSERT INTO containers (id, space_id, name, grid_row, grid_column, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      )
+      .run(
+        '00000000-0000-4000-8000-000000000002',
+        '00000000-0000-4000-8000-000000000001',
+        '상단 선반',
+        0,
+        0,
+        '2026-08-18T00:00:00.000Z',
+        '2026-08-18T00:00:00.000Z',
+      );
+
+    const insertBatch = database.prepare(
+      'INSERT INTO inventory_batches (id, ingredient_source, ingredient_ref, display_name, container_id, amount, unit, quantity_known, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    );
+
+    expect(() =>
+      insertBatch.run(
+        '00000000-0000-4000-8000-000000000010',
+        'catalog',
+        'ingredient-milk',
+        '우유',
+        '00000000-0000-4000-8000-000000000002',
+        0,
+        'ml',
+        1,
+        '2026-08-18T00:00:00.000Z',
+        '2026-08-18T00:00:00.000Z',
+      ),
+    ).toThrow();
+
+    expect(() =>
+      insertBatch.run(
+        '00000000-0000-4000-8000-000000000011',
+        'custom',
+        'custom-green-onion',
+        '대파',
+        'missing-container',
+        null,
+        'g',
+        0,
+        '2026-08-18T00:00:00.000Z',
+        '2026-08-18T00:00:00.000Z',
+      ),
+    ).toThrow();
+
+    expect(() =>
+      insertBatch.run(
+        '00000000-0000-4000-8000-000000000012',
+        'custom',
+        'custom-green-onion',
+        '대파',
+        '00000000-0000-4000-8000-000000000002',
+        null,
+        'g',
+        0,
+        '2026-08-18T00:00:00.000Z',
+        '2026-08-18T00:00:00.000Z',
+      ),
+    ).not.toThrow();
+
+    expect(() =>
+      database
+        .prepare('DELETE FROM containers WHERE id = ?')
+        .run('00000000-0000-4000-8000-000000000002'),
     ).toThrow();
 
     database.close();

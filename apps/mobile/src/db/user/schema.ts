@@ -4,6 +4,7 @@ import {
   foreignKey,
   index,
   integer,
+  real,
   sqliteTable,
   text,
   uniqueIndex,
@@ -116,6 +117,124 @@ export const containers = sqliteTable(
   ],
 );
 
+export const customIngredients = sqliteTable(
+  'custom_ingredients',
+  {
+    id: text('id').primaryKey(),
+    canonicalName: text('canonical_name').notNull(),
+    aliases: text('aliases', { mode: 'json' })
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+    category: text('category'),
+    defaultUnit: text('default_unit', {
+      enum: ['g', 'kg', 'ml', 'L', 'piece', 'pack', 'bag', 'bottle', 'can'],
+    }).notNull(),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('custom_ingredients_canonical_name_unique').on(
+      table.canonicalName,
+    ),
+    check(
+      'custom_ingredients_canonical_name_check',
+      sql`length(trim(${table.canonicalName})) BETWEEN 1 AND 100`,
+    ),
+    check(
+      'custom_ingredients_default_unit_check',
+      sql`${table.defaultUnit} IN ('g', 'kg', 'ml', 'L', 'piece', 'pack', 'bag', 'bottle', 'can')`,
+    ),
+  ],
+);
+
+export const inventoryBatches = sqliteTable(
+  'inventory_batches',
+  {
+    id: text('id').primaryKey(),
+    ingredientSource: text('ingredient_source', {
+      enum: ['catalog', 'custom'],
+    }).notNull(),
+    ingredientRef: text('ingredient_ref').notNull(),
+    displayName: text('display_name').notNull(),
+    containerId: text('container_id')
+      .notNull()
+      .references(() => containers.id, { onDelete: 'restrict' }),
+    amount: real('amount'),
+    unit: text('unit', {
+      enum: ['g', 'kg', 'ml', 'L', 'piece', 'pack', 'bag', 'bottle', 'can'],
+    }).notNull(),
+    quantityKnown: integer('quantity_known', { mode: 'boolean' })
+      .notNull()
+      .default(true),
+    packageCount: real('package_count'),
+    packageSize: real('package_size'),
+    packageSizeUnit: text('package_size_unit', {
+      enum: ['g', 'kg', 'ml', 'L', 'piece'],
+    }),
+    purchasedOn: text('purchased_on'),
+    expiresOn: text('expires_on'),
+    openedOn: text('opened_on'),
+    minimumAmount: real('minimum_amount'),
+    note: text('note'),
+    status: text('status', {
+      enum: ['available', 'consumed', 'discarded', 'deleted'],
+    })
+      .notNull()
+      .default('available'),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [
+    index('inventory_batches_ingredient_idx').on(
+      table.ingredientSource,
+      table.ingredientRef,
+    ),
+    index('inventory_batches_container_idx').on(table.containerId),
+    index('inventory_batches_expiry_idx').on(table.status, table.expiresOn),
+    check(
+      'inventory_batches_ingredient_source_check',
+      sql`${table.ingredientSource} IN ('catalog', 'custom')`,
+    ),
+    check(
+      'inventory_batches_ingredient_ref_check',
+      sql`length(trim(${table.ingredientRef})) BETWEEN 1 AND 200`,
+    ),
+    check(
+      'inventory_batches_display_name_check',
+      sql`length(trim(${table.displayName})) BETWEEN 1 AND 100`,
+    ),
+    check(
+      'inventory_batches_unit_check',
+      sql`${table.unit} IN ('g', 'kg', 'ml', 'L', 'piece', 'pack', 'bag', 'bottle', 'can')`,
+    ),
+    check(
+      'inventory_batches_quantity_check',
+      sql`(${table.quantityKnown} = 1 AND ${table.amount} > 0) OR (${table.quantityKnown} = 0 AND ${table.amount} IS NULL)`,
+    ),
+    check(
+      'inventory_batches_package_check',
+      sql`(${table.packageCount} IS NULL AND ${table.packageSize} IS NULL AND ${table.packageSizeUnit} IS NULL) OR (${table.packageCount} > 0 AND ${table.packageSize} > 0 AND ${table.packageSizeUnit} IS NOT NULL)`,
+    ),
+    check(
+      'inventory_batches_package_size_unit_check',
+      sql`${table.packageSizeUnit} IS NULL OR ${table.packageSizeUnit} IN ('g', 'kg', 'ml', 'L', 'piece')`,
+    ),
+    check(
+      'inventory_batches_minimum_amount_check',
+      sql`${table.minimumAmount} IS NULL OR ${table.minimumAmount} >= 0`,
+    ),
+    check(
+      'inventory_batches_status_check',
+      sql`${table.status} IN ('available', 'consumed', 'discarded', 'deleted')`,
+    ),
+    check(
+      'inventory_batches_note_check',
+      sql`${table.note} IS NULL OR length(${table.note}) <= 500`,
+    ),
+  ],
+);
+
 export type LocalOwner = typeof localOwners.$inferSelect;
 export type NewLocalOwner = typeof localOwners.$inferInsert;
 export type AppProfile = typeof appProfiles.$inferSelect;
@@ -124,3 +243,7 @@ export type StorageSpace = typeof storageSpaces.$inferSelect;
 export type NewStorageSpace = typeof storageSpaces.$inferInsert;
 export type Container = typeof containers.$inferSelect;
 export type NewContainer = typeof containers.$inferInsert;
+export type CustomIngredient = typeof customIngredients.$inferSelect;
+export type NewCustomIngredient = typeof customIngredients.$inferInsert;
+export type InventoryBatch = typeof inventoryBatches.$inferSelect;
+export type NewInventoryBatch = typeof inventoryBatches.$inferInsert;
