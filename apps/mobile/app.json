@@ -12,6 +12,7 @@
     },
     "plugins": [
       "expo-router",
+      "react-native-nitro-google-signin",
       [
         "expo-splash-screen",
         {

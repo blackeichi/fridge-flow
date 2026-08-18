@@ -40,7 +40,7 @@ npm ci
 npm run start
 ```
 
-Android 에뮬레이터 또는 연결된 기기에서 실행하려면 `npm run android`를 사용합니다.
+Google 로그인은 Android Credential Manager 기반 네이티브 모듈을 사용하므로 Expo Go에서는 실행되지 않습니다. `apps/mobile/.env.example`을 참고해 `EXPO_PUBLIC_GOOGLE_SERVER_CLIENT_ID`를 설정하고 development build를 만든 뒤 Android 에뮬레이터나 연결된 기기에서 `npm run android`를 사용합니다. Google Cloud에는 `com.fridgeflow.app` 패키지와 사용하는 개발·배포 인증서의 SHA-1을 등록해야 합니다.
 
 ## 검증
 
@@ -51,4 +51,3 @@ npm run validate
 위 명령은 포맷, lint, TypeScript typecheck와 Jest/RNTL 테스트를 순서대로 실행합니다.
 
 공개 가능한 앱 환경변수의 예시는 `apps/mobile/.env.example`에 두며, API key나 token 같은 secret은 `EXPO_PUBLIC_*` 변수에 넣지 않습니다.
-
