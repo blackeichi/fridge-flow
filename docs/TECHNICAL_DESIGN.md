@@ -274,7 +274,7 @@ Google 로그인 client, 로그인 gate와 `LocalOwner` binding repository도 �
 - 사용자는 Google Drive, 기기 저장소 또는 설치된 다른 `DocumentsProvider`를 선택한다.
 - Drive 앱과 Android가 사용자 인증과 업로드를 담당하며 Fridge Flow는 선택된 document URI에만 쓴다.
 - 별도 Drive OAuth scope, Drive refresh token, 서비스 계정과 백엔드 파일 중계가 필요 없다.
-- 복원은 `ACTION_OPEN_DOCUMENT`에 해당하는 파일 선택기로 `.ffbackup` URI를 받아 읽는다.
+- 복원은 `ACTION_OPEN_DOCUMENT`에 해당하는 파일 선택기로 `.ffbackup` URI를 받아 읽는다. 현재 구현은 SDK 57의 `expo-intent-launcher` 57.0.1과 `expo-file-system` 57.0.1을 정확히 고정해 사용한다. 두 모듈은 Expo 공식 MIT 라이선스로 관리되며 네이티브 파일·Intent 코드만 추가하고 별도 서버나 운영 비용은 없다.
 
 MVP는 사용자 주도 내보내기만 보장한다. 자동 Drive 백업, 백그라운드 업로드와 다중 기기 동기화는 제공하지 않는다.
 
@@ -282,19 +282,24 @@ MVP는 사용자 주도 내보내기만 보장한다. 자동 Drive 백업, 백�
 
 확장자: `.ffbackup`
 
-```text
-fridge-flow-20260802-153000.ffbackup
-├─ manifest.json
-└─ data.json
+format version 1은 압축 없는 UTF-8 JSON 봉투다. ZIP을 만들거나 해제하지 않는다.
+
+```json
+{
+  "manifest": { "format": "fridge-flow-backup" },
+  "data": "테이블별 배열을 직렬화한 JSON 문자열"
+}
 ```
 
-`manifest.json` 필수 필드:
+위 manifest는 구조 예시이며 실제 필수 필드는 아래와 같다. SHA-256은 `data` 문자열의 정확한 UTF-8 바이트를 대상으로 한다. 전체 파일은 10MiB 이하로 제한한다. 압축이 없으므로 압축 폭탄·archive 경로 순회 경로가 없고, 허용하지 않은 봉투·행 필드는 strict schema로 거부한다.
+
+`manifest` 필수 필드:
 
 ```json
 {
   "format": "fridge-flow-backup",
   "format_version": 1,
-  "schema_version": 1,
+  "schema_version": 3,
   "app_version": "0.1.0",
   "owner_sub_sha256": "hex-string",
   "created_at": "2026-08-02T06:30:00Z",
@@ -333,13 +338,24 @@ fridge-flow-20260802-153000.ffbackup
 복원:
 
 1. 시스템 파일 선택기에서 `.ffbackup`을 고른다.
-2. archive traversal, 압축 해제 크기, format/schema version과 SHA-256을 검사한다.
+2. 최대 64KiB씩 읽으며 전체 10MiB 한도를 강제하고 format/schema version, strict 필드와 SHA-256을 검사한다. 파일 크기 메타데이터가 없어도 실제 읽은 바이트로 제한한다.
 3. 로그인 계정의 `sub` hash와 manifest 소유자 hash가 같은지 확인한다.
 4. 백업 시각과 교체될 레코드 수를 요약하고 전체 교체를 확인받는다.
-5. 현재 DB의 기기 내부 `pre-restore` 안전 snapshot을 만든다.
-6. 임시 SQLite DB에 import하고 FK·UUID·수량·단위·거래 unique constraint를 검사한다.
-7. 모든 검증이 끝난 뒤 앱이 현재 DB handle을 닫고 임시 DB와 원자적으로 교체한다.
-8. 실패하면 임시 DB를 폐기하고 기존 `user.db`를 유지한다.
+5. 임시 SQLite DB에 import하고 UUID·수량·단위·거래 unique constraint·FK·integrity를 검사한다. 임시 DB는 성공·실패 모두 닫고 삭제한다.
+6. 현재 DB를 SQLite backup API로 기기 내부 `pre-restore-UUID.db`에 복사하고 integrity를 확인한다. 안전 사본 생성 실패 시 복원하지 않는다.
+7. 안전 사본 생성부터 원본 변경까지 await 없이 실행한다. 하나의 SQLite transaction에서 도메인 행 전체와 복원 이력을 교체·기록한다. 기존 owner binding과 기기 백업 이력은 보존한다.
+8. import·FK·복원 이력 기록 중 실패하면 전체 rollback해 기존 `user.db`를 유지한다. 안전 사본은 기기 내부에 남긴다.
+
+#### 2026-10-26 구현과 결정 기록
+
+- 파일 교체 대신 검증된 logical snapshot을 원본의 단일 SQLite transaction에 적용한다. WAL의 원자적 commit/rollback을 사용하므로 중간 실패·종료 시 부분 복원이 남지 않으며, 기존 Drizzle 연결과 live query를 유지해 닫힌 handle·오래된 query 참조 문제를 피한다.
+- format version 1, user schema version 3으로 시작한다. Zod 4.4.3(MIT)을 직접 의존성으로 고정하고 봉투·manifest·도메인 행을 strict 검증한다. 프로젝트에 이미 포함된 버전을 사용하며 새 네트워크 호출·서비스는 추가하지 않는다.
+- 현재 포함 테이블은 AppProfile, StorageSpace, Container, InventoryBatch, InventoryTransaction이다. 소유자 hash는 manifest에만 넣고 LocalOwner row·인증 원문·BackupHistory·catalog·파일 URI는 payload에서 제외한다. 아직 미구현된 레시피·식단·장보기 테이블은 포함하지 않는다.
+- schema 1 fixture는 재고·거래 배열을 비운 채 현재 payload로 변환한다. schema 2의 도메인 구조는 동일하며 schema 3에서 추가한 BackupHistory는 기기 전용이라 import하지 않는다. 상위 버전·계정 불일치·잘못된 checksum·레코드 수·중복 키·순환 계층·수량·거래 연결은 거부한다.
+- export는 시스템 `CREATE_DOCUMENT`로 목적지를 선택하고 저장 후 다시 읽어 정확한 내용이 일치한 때만 성공 이력을 남긴다. 선택 취소나 provider 오류는 성공 시각을 바꾸지 않는다. 파일 선택기에서 Drive를 선택할 수 있으나 Drive 원격 업로드 완료를 별도 API로 보증하지는 않는다.
+- 복원 미리보기는 시각·재료·위치·거래 건수와 전체 교체 여부를 보여주고 별도 확인 버튼을 요구한다. 확인 후 같은 원문과 현재 계정을 다시 검증한다. 처리 중 화면을 잠그고 중복 작업을 거부한다.
+- 홈과 백업 화면에 마지막 성공 export 시각을 표시하고, 홈에는 백업 없음 또는 7일 경과 안내를 표시한다. 안전 SQLite 사본은 외부 내보내기·토큰을 포함하지 않으며 현재는 자동 삭제하지 않는다. 안전 사본을 직접 고르는 복구 UI는 후속 범위다.
+- Android development build를 다시 만들어 파일 모듈을 포함해야 한다. Drive provider·기기 저장소에서의 실제 파일 선택·저장·복원과 강제 종료 E2E는 실제 기기에서 검증해야 한다.
 
 현재 앱보다 높은 schema version은 거부하고 업데이트 필요 메시지를 표시한다. 낮은 버전은 순차 migration fixture를 통과한 뒤 복원한다. 병합 복원은 제공하지 않는다.
 

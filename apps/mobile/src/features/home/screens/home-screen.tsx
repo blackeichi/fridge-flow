@@ -1,3 +1,5 @@
+import { useRouter } from 'expo-router';
+import { useBackupStatus } from '@/features/backup/services/use-backup-status';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -37,6 +39,8 @@ export function HomeScreen() {
 
 function InventoryScreen({ onRetry }: { onRetry: () => void }) {
   const inventory = useInventory();
+  const router = useRouter();
+  const lastBackup = useBackupStatus();
   const [editor, setEditor] = useState<{ batch: InventoryBatch | null } | null>(
     null,
   );
@@ -200,6 +204,22 @@ function InventoryScreen({ onRetry }: { onRetry: () => void }) {
                 3일 이내·경과 {urgentCount}묶음
               </Text>
             </View>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push('/backup')}
+              style={styles.undo}
+            >
+              <View style={styles.titleText}>
+                <Text style={styles.link}>백업·복원</Text>
+                <Text style={styles.hint}>
+                  {!lastBackup
+                    ? '아직 백업이 없어요. 데이터를 보관해 주세요.'
+                    : clock - Date.parse(lastBackup) >= 7 * 86_400_000
+                      ? '마지막 백업 후 7일이 지났어요. 새 백업을 저장해 주세요.'
+                      : `최근 백업: ${new Date(lastBackup).toLocaleString()}`}
+                </Text>
+              </View>
+            </Pressable>
             <TextInput
               accessibilityLabel="재료 검색"
               placeholder="재료 이름으로 검색"

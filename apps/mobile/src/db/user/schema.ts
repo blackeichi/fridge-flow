@@ -207,3 +207,11 @@ export const inventoryTransactions = sqliteTable(
     ),
   ],
 );
+
+export const backupHistory = sqliteTable('backup_history', {
+  id: text('id').primaryKey(),
+  action: text('action', { enum: ['export', 'restore'] }).notNull(),
+  createdAt: text('created_at').notNull(),
+  checksum: text('checksum').notNull(),
+  safetyDatabaseName: text('safety_database_name'),
+});
