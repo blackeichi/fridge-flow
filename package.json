@@ -25,7 +25,10 @@
     "lint": "npm run lint --workspace @fridge-flow/mobile",
     "test": "npm run test --workspace @fridge-flow/mobile",
     "typecheck": "npm run typecheck --workspace @fridge-flow/mobile",
-    "validate": "npm run format:check && npm run lint && npm run typecheck && npm run db:check && npm run test"
+    "validate": "npm run format:check && npm run lint && npm run typecheck && npm run db:check && npm run test",
+    "android:build": "npm run android:build --workspace @fridge-flow/mobile",
+    "android:prebuild": "npm run android:prebuild --workspace @fridge-flow/mobile",
+    "android:export": "npm run android:export --workspace @fridge-flow/mobile"
   },
   "devDependencies": {
     "prettier": "3.9.6",

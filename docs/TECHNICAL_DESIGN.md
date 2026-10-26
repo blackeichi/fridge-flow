@@ -173,7 +173,7 @@ Google 로그인 client, 로그인 gate와 `LocalOwner` binding repository도 �
 - undo는 반대 변경을 새 기록으로 추가한다. `last_operation_id` 검사로 이후 변경의 덮어쓰기를 막고, unique `reverses_operation_id`로 이중 취소를 막는다. 기본 UI는 가장 최근 변경 하나만 노출하며 전체 활동 기록·조리 차감은 후속 범위다.
 - feature hook이 repository query builder를 `useLiveQuery`로 구독한다. 화면은 SQL을 실행하거나 DB 결과를 전역 상태에 복제하지 않는다.
 - 첫 진입 시 기본 위치를 하나의 transaction으로 초기화한다. 이미 존재하는 공간 유형과 컨테이너는 재사용하며 사용자 이름·배치를 덮어쓰지 않는다. 빈 공간에만 기본 컨테이너를 넣어 재실행 중복을 방지한다.
-- 이번 단계는 새 의존성을 추가하지 않는다. Android development build와 Google Cloud OAuth 설정을 포함한 실제 기기 E2E는 별도 검증이 필요하다. 현재 기존 `app.json`의 Google 로그인 config plugin은 Firebase 파일 또는 `iosUrlScheme` 옵션이 없어 Android export 단계에서도 실패한다. 실제 OAuth 설정 없이 임의의 값을 넣지 않으며 인증 빌드 구성은 별도 후속 작업으로 남긴다.
+- 이번 단계는 새 의존성을 추가하지 않는다. Android development build와 Google Cloud OAuth 설정을 포함한 실제 기기 E2E는 별도 검증이 필요하다. 기존 Google 로그인 config plugin의 설정 누락으로 막혔던 Android export는 아래 개발 빌드 구성 작업에서 해결한다.
 
 ### 5.1 `user.db` 원본
 
@@ -490,6 +490,15 @@ Netlify 동기 Function의 60초 실행 제한 안에서 완료하도록 OpenAI 
 - `preview` profile의 `android.buildType: "apk"`로 서명된 배포 APK를 만든다.
 - Firebase App Distribution 테스터 목록에는 본인과 지인만 등록한다.
 - 앱 업데이트는 `user.db`를 보존하고 `catalog.db`만 호환 가능한 schema로 교체한다.
+
+#### Android 개발 빌드 구성 (2026-10-26)
+
+- `app.json`에 Android 플랫폼을 명시하고 Firebase/iOS 설정을 요구하던 `react-native-nitro-google-signin` config plugin을 제거한다. 네이티브 모듈은 React Native autolinking으로 연결하며 Android Credential Manager에 명시적 Web OAuth client ID를 전달한다. Google Cloud의 실제 Android client·서명 SHA-1 등록은 여전히 필요하다.
+- Expo SDK 57의 `bundledNativeModules.json` 호환 버전인 `expo-dev-client` 57.0.10을 정확히 고정한다. Expo 공식 MIT 라이선스 패키지로 개발 런처·메뉴와 관련 네이티브 모듈이 추가된다. 별도 백엔드나 실행 요금은 추가하지 않으며 EAS 클라우드 빌드는 사용자가 실행할 때만 시작된다.
+- `start`·`android`는 `--dev-client`를 사용하고 `android:build`는 로컬 `expo run:android`로 생성·컴파일·설치한다. `android:prebuild`와 `android:export`는 각각 네이티브 프로젝트 생성, Android 번들 검증에 사용한다.
+- 모노레포의 앱 루트인 `apps/mobile/eas.json`에 `development`(development client APK, development 환경), `preview`(독립 실행 APK, preview 환경) 프로필을 둔다. EAS 프로젝트 ID·소유자·실제 OAuth 값·서명 키는 저장소에서 임의 생성하지 않는다.
+- PR CI에 `android:export`를 추가해 config plugin·Metro·네이티브 모듈 JS 연결 오류가 재발하면 병합 전에 발견한다. APK 컴파일·실기기 E2E와는 구분한다.
+- 실제 기기의 계정 연결·재고 입력·재시작·오프라인·undo 점검과 서명 키 관리는 [Android 개발·빌드 안내](ANDROID_DEVELOPMENT.md)를 따른다.
 
 ### 11.2 Netlify
 
