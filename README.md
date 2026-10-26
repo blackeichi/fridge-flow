@@ -46,7 +46,21 @@ npm ci
 npm run start
 ```
 
-Google 로그인은 Android Credential Manager 기반 네이티브 모듈을 사용하므로 Expo Go에서는 실행되지 않습니다. `apps/mobile/.env.example`을 참고해 `EXPO_PUBLIC_GOOGLE_SERVER_CLIENT_ID`를 설정하고 development build를 만든 뒤 Android 에뮬레이터나 연결된 기기에서 `npm run android`를 사용합니다. Google Cloud에는 `com.fridgeflow.app` 패키지와 사용하는 개발·배포 인증서의 SHA-1을 등록해야 합니다.
+Google 로그인은 Android Credential Manager 기반 네이티브 모듈을 사용하므로 Expo Go에서는 실행되지 않습니다. `start`와 `android`는 설치된 development build를 대상으로 Metro를 실행합니다.
+
+처음 실행할 때:
+
+```bash
+cp apps/mobile/.env.example apps/mobile/.env
+# EXPO_PUBLIC_GOOGLE_SERVER_CLIENT_ID를 실제 Web OAuth client ID로 교체
+npm run android:build
+```
+
+`android:build`는 Android Studio/SDK와 연결된 기기 또는 에뮬레이터가 있는 로컬 환경에서 네이티브 프로젝트를 생성하고 development build를 설치합니다. 이후에는 `npm run android`로 Metro와 앱을 엽니다. 네이티브 의존성이 바뀌면 다시 빌드해야 합니다.
+
+Google Cloud에는 Web OAuth client와 Android OAuth client가 필요합니다. Android client에 `com.fridgeflow.app` 패키지와 해당 빌드 서명 인증서의 SHA-1을 등록합니다. 이 앱은 `webClientId`를 직접 전달하므로 Firebase 설정 파일과 iOS URL scheme은 사용하지 않습니다. 상세 설정과 기기 점검 절차는 [Android 개발·빌드 안내](docs/ANDROID_DEVELOPMENT.md)를 참고합니다.
+
+클라우드 개발 빌드와 독립 실행 APK를 위한 EAS `development`·`preview` 프로필은 `apps/mobile/eas.json`에 있습니다. 실제 EAS 프로젝트 연결, 빌드 서명과 Google OAuth 설정은 사용자의 환경에서 진행합니다.
 
 ## 검증
 
@@ -54,6 +68,13 @@ Google 로그인은 Android Credential Manager 기반 네이티브 모듈을 사
 npm run validate
 ```
 
-위 명령은 포맷, lint, TypeScript typecheck와 Jest/RNTL 테스트를 순서대로 실행합니다.
+위 명령은 포맷, lint, TypeScript typecheck, migration 검사와 Jest/RNTL 테스트를 순서대로 실행합니다.
+
+```bash
+npm run android:export
+npm run android:prebuild
+```
+
+`android:export`는 Android JavaScript/Hermes 번들을 생성하며 CI에서도 실행합니다. `android:prebuild`는 네이티브 Android 프로젝트 생성까지 확인합니다. 두 명령은 APK 컴파일·설치나 실제 Google 로그인 검증을 대신하지 않습니다.
 
 공개 가능한 앱 환경변수의 예시는 `apps/mobile/.env.example`에 두며, API key나 token 같은 secret은 `EXPO_PUBLIC_*` 변수에 넣지 않습니다.
