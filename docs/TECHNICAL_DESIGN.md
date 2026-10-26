@@ -359,6 +359,13 @@ format version 1은 압축 없는 UTF-8 JSON 봉투다. ZIP을 만들거나 해�
 
 현재 앱보다 높은 schema version은 거부하고 업데이트 필요 메시지를 표시한다. 낮은 버전은 순차 migration fixture를 통과한 뒤 복원한다. 병합 복원은 제공하지 않는다.
 
+### 7.4 백업 상태 표시 보완 (2026-10-26)
+
+- 홈과 백업 화면은 동일한 BackupFreshness 표시와 순수 경과 판정을 사용한다. BackupHistory의 export 성공 이력만 useLiveQuery로 구독하며 restore·안전 사본은 외부 내보내기 시각으로 계산하지 않는다.
+- updatedAt과 error로 조회 중·실패·빈 이력을 구분한다. 조회 실패 시 이전 캐시를 최근 성공 백업처럼 표시하지 않는다. 7일은 UTC timestamp 사이의 168시간이며 임계값을 포함한다. 경과 경고에도 실제 성공 시각을 기기 지역 형식으로 표시한다.
+- 각 화면의 공통 시계 hook은 1분마다, AppState active 전환 시 갱신하고 unmount 시 timer·listener를 정리한다. 홈의 기존 유통기한·undo 시계도 이 hook을 재사용한다. 미래·유효하지 않은 timestamp는 날짜 확인 안내를 표시한다.
+- 새 저장 필드·migration·의존성·백그라운드 알림은 추가하지 않는다. 이력은 해당 기기의 내보내기 성공 기록이며 이후 사용자가 외부 파일을 삭제했는지는 추적하지 않는다.
+
 ## 8. 공공 카탈로그 빌드
 
 - 식약처 레시피와 K-FIND 데이터를 개발 도구로 가져와 정규화한다.

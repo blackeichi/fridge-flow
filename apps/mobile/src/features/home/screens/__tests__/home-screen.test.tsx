@@ -4,7 +4,7 @@ import { useInventory } from '@/features/inventory/hooks/use-inventory';
 
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn() }) }));
 jest.mock('@/features/backup/services/use-backup-status', () => ({
-  useBackupStatus: () => null,
+  useBackupStatus: () => ({ lastExport: null, loading: false, error: false }),
 }));
 jest.mock('@/features/inventory/hooks/use-inventory', () => ({
   useInventory: jest.fn(),

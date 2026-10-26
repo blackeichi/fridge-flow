@@ -80,3 +80,5 @@ npm run android:prebuild
 `android:export`는 Android JavaScript/Hermes 번들을 생성하며 CI에서도 실행합니다. `android:prebuild`는 네이티브 Android 프로젝트 생성까지 확인합니다. 두 명령은 APK 컴파일·설치나 실제 Google 로그인 검증을 대신하지 않습니다.
 
 공개 가능한 앱 환경변수의 예시는 `apps/mobile/.env.example`에 두며, API key나 token 같은 secret은 `EXPO_PUBLIC_*` 변수에 넣지 않습니다.
+
+홈과 백업·복원 화면은 마지막 성공 백업 시각과 7일 경과 안내를 공유하며, 백업 기록 조회 중·실패·백업 없음을 구분합니다.

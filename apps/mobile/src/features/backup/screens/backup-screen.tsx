@@ -1,4 +1,6 @@
 import { useRef, useState } from 'react';
+import { BackupFreshness } from '../components/backup-freshness';
+import { useForegroundClock } from '@/shared/hooks/use-foreground-clock';
 import { useRouter } from 'expo-router';
 import {
   ActivityIndicator,
@@ -18,6 +20,7 @@ import { useBackupStatus } from '../services/use-backup-status';
 export function BackupScreen() {
   const router = useRouter();
   const lastExport = useBackupStatus();
+  const now = useForegroundClock();
   const [pending, setPending] = useState<PreparedBackup | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -59,10 +62,7 @@ export function BackupScreen() {
         </Text>
         <View style={styles.card}>
           <Text style={styles.heading}>내 데이터를 보관하기</Text>
-          <Text style={styles.description}>
-            마지막 성공 백업:{' '}
-            {lastExport ? new Date(lastExport).toLocaleString() : '아직 없음'}
-          </Text>
+          <BackupFreshness status={lastExport} now={now} />
           <Text style={styles.notice}>
             백업은 암호화되지 않습니다. 개인 폴더에 보관하고 다른 사람에게
             공유하지 마세요.
