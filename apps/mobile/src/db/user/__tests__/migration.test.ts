@@ -36,7 +36,10 @@ describe('user.db initial migration', () => {
     expect(rows.map(({ name }) => name)).toEqual([
       'app_profiles',
       'containers',
+      'inventory_batches',
+      'inventory_transactions',
       'local_owners',
+      'sqlite_sequence',
       'storage_spaces',
     ]);
 
@@ -178,6 +181,49 @@ describe('user.db initial migration', () => {
       ),
     ).toThrow();
 
+    database.close();
+  });
+  it('upgrades the existing schema without changing owner or storage records', () => {
+    const database = new Database(':memory:');
+    database.pragma('foreign_keys = ON');
+    const directory = resolve(__dirname, '../migrations');
+    const files = readdirSync(directory)
+      .filter((name) => name.endsWith('.sql'))
+      .sort();
+    database.exec(
+      readFileSync(resolve(directory, files[0]), 'utf8').replaceAll(
+        '--> statement-breakpoint',
+        '',
+      ),
+    );
+    database
+      .prepare('INSERT INTO local_owners VALUES (?, ?, ?)')
+      .run('a'.repeat(64), '2026-08-12T00:00:00Z', '2026-08-12T00:00:00Z');
+    database
+      .prepare(
+        'INSERT INTO storage_spaces (id, name, type, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+      )
+      .run(
+        'existing-space',
+        '내 냉장고',
+        'refrigerator',
+        '2026-08-12T00:00:00Z',
+        '2026-08-12T00:00:00Z',
+      );
+    const owner = database.prepare('SELECT * FROM local_owners').all();
+    const spaces = database.prepare('SELECT * FROM storage_spaces').all();
+    for (const file of files.slice(1))
+      database.exec(
+        readFileSync(resolve(directory, file), 'utf8').replaceAll(
+          '--> statement-breakpoint',
+          '',
+        ),
+      );
+    expect(database.prepare('SELECT * FROM local_owners').all()).toEqual(owner);
+    expect(database.prepare('SELECT * FROM storage_spaces').all()).toEqual(
+      spaces,
+    );
+    expect(database.pragma('foreign_key_check')).toEqual([]);
     database.close();
   });
 });
