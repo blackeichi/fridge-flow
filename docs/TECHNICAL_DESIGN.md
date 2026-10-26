@@ -2,7 +2,7 @@
 
 - 문서 상태: 초안 v0.7
 - 작성일: 2026-07-29
-- 최종 수정일: 2026-08-12
+- 최종 수정일: 2026-10-26
 - 전제: `PRODUCT_SPEC.md`의 개인·지인용 Android MVP를 구현하기 위한 현재 설계
 
 ## 1. 설계 목표
@@ -158,9 +158,22 @@ fridge-flow/
 
 2026-08-12 기준 `user.db` 기반 구현에는 `LocalOwner`, `AppProfile`, `StorageSpace`, `Container` schema와 첫 migration이 포함된다. 앱 시작 시 migration gate를 통과한 뒤에만 화면을 표시하며 SQLite foreign key, WAL과 change listener를 활성화한다.
 
-공간 생성 write는 feature repository와 Drizzle persistence adapter를 통해 transaction으로 실행한다. migration SQL은 테스트 전용 SQLite 엔진에서 제약조건과 cascade 동작을 검증한다. `InventoryBatch`, `InventoryTransaction`을 포함한 나머지 사용자 엔터티는 후속 기능 구현에서 별도 migration으로 추가한다.
+공간 생성 write는 feature repository와 Drizzle persistence adapter를 통해 transaction으로 실행한다. migration SQL은 테스트 전용 SQLite 엔진에서 제약조건과 cascade 동작을 검증한다. `InventoryBatch`와 `InventoryTransaction`은 2026-10-26에 별도 추가 migration으로 구현되었다. 나머지 사용자 엔터티는 후속 기능에서 추가한다.
 
 Google 로그인 client, 로그인 gate와 `LocalOwner` binding repository도 구현되었다. 첫 로그인은 Google `sub`의 SHA-256만 `user.db`에 기록하고, 이후 다른 hash가 들어오면 DB를 열지 않은 채 인증 session을 해제한다. Google ID token과 raw `sub`는 DB에 쓰지 않는다. 실제 Google Cloud의 Web/Android OAuth client, 서명 인증서 SHA-1과 development build 기기 검증은 배포 환경 설정 작업으로 남아 있다.
+
+#### 2026-10-26 재고 구현과 결정 기록
+
+- 기존 테이블·데이터를 보존하는 추가 migration으로 `inventory_batches`, `inventory_transactions`를 생성한다. 기존 초기 migration은 수정하지 않는다.
+- 사용자 입력 재료명은 각 묶음의 `name`에 저장한다. 카탈로그·`CustomIngredient` 연결은 아직 구현하지 않았으며 추후 nullable 참조를 추가한다.
+- `amount`는 정수 9자리·소수 6자리까지 허용하는 decimal text다. `unit`과 `quantity_known`을 따로 저장하고, 수량 모름은 `NULL`, 수량 0은 `exhausted`로 구분한다. 단위를 바꿀 때 자동 환산하지 않는다.
+- 구매일과 유통기한은 검증된 `YYYY-MM-DD` 또는 `NULL`이다. 기기 현지 날짜와 date-only UTC 일수 차로 임박 구간을 계산한다. 분 단위 및 앱 복귀 시 오늘 날짜를 갱신한다.
+- repository는 동기 SQLite transaction에서 묶음과 append-only 변경 기록을 함께 쓴다. 동일 `operation_id`는 unique constraint로 전체 rollback한다. Expo SQLite와 테스트용 better-sqlite3의 Drizzle 동기 API를 사용한다.
+- 거래에 before/after snapshot, 같은 단위의 정확한 scaled-integer `amount_delta`, `operation_id`를 기록한다. 단위 변경·수량 모름의 delta는 `NULL`이다. 삭제는 수량을 차감하지 않고 상태만 `deleted`로 바꾸며 원본·기록을 보존한다.
+- undo는 반대 변경을 새 기록으로 추가한다. `last_operation_id` 검사로 이후 변경의 덮어쓰기를 막고, unique `reverses_operation_id`로 이중 취소를 막는다. 기본 UI는 가장 최근 변경 하나만 노출하며 전체 활동 기록·조리 차감은 후속 범위다.
+- feature hook이 repository query builder를 `useLiveQuery`로 구독한다. 화면은 SQL을 실행하거나 DB 결과를 전역 상태에 복제하지 않는다.
+- 첫 진입 시 기본 위치를 하나의 transaction으로 초기화한다. 이미 존재하는 공간 유형과 컨테이너는 재사용하며 사용자 이름·배치를 덮어쓰지 않는다. 빈 공간에만 기본 컨테이너를 넣어 재실행 중복을 방지한다.
+- 이번 단계는 새 의존성을 추가하지 않는다. Android development build와 Google Cloud OAuth 설정을 포함한 실제 기기 E2E는 별도 검증이 필요하다. 현재 기존 `app.json`의 Google 로그인 config plugin은 Firebase 파일 또는 `iosUrlScheme` 옵션이 없어 Android export 단계에서도 실패한다. 실제 OAuth 설정 없이 임의의 값을 넣지 않으며 인증 빌드 구성은 별도 후속 작업으로 남긴다.
 
 ### 5.1 `user.db` 원본
 

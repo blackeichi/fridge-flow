@@ -124,3 +124,86 @@ export type StorageSpace = typeof storageSpaces.$inferSelect;
 export type NewStorageSpace = typeof storageSpaces.$inferInsert;
 export type Container = typeof containers.$inferSelect;
 export type NewContainer = typeof containers.$inferInsert;
+
+// Decimal text preserves the entered amount without binary floating-point storage.
+export const inventoryBatches = sqliteTable(
+  'inventory_batches',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    containerId: text('container_id')
+      .notNull()
+      .references(() => containers.id, { onDelete: 'restrict' }),
+    amount: text('amount'),
+    unit: text('unit', {
+      enum: ['g', 'kg', 'ml', 'L', '개', '팩', '봉', '병', '캔'],
+    }).notNull(),
+    quantityKnown: integer('quantity_known', { mode: 'boolean' }).notNull(),
+    purchasedOn: text('purchased_on'),
+    expiresOn: text('expires_on'),
+    notes: text('notes').notNull().default(''),
+    status: text('status', {
+      enum: ['available', 'exhausted', 'discarded', 'deleted'],
+    }).notNull(),
+    lastOperationId: text('last_operation_id').notNull(),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [
+    index('inventory_batches_container_idx').on(table.containerId),
+    index('inventory_batches_expiry_idx').on(table.status, table.expiresOn),
+    check(
+      'inventory_batches_name_check',
+      sql`length(trim(${table.name})) BETWEEN 1 AND 100`,
+    ),
+    check(
+      'inventory_batches_unit_check',
+      sql`${table.unit} IN ('g','kg','ml','L','개','팩','봉','병','캔')`,
+    ),
+    check(
+      'inventory_batches_quantity_check',
+      sql`(${table.quantityKnown} = 0 AND ${table.amount} IS NULL) OR (${table.quantityKnown} = 1 AND ${table.amount} IS NOT NULL AND length(${table.amount}) BETWEEN 1 AND 16 AND ${table.amount} NOT GLOB '*[^0-9.]*' AND ${table.amount} GLOB '[0-9]*' AND length(${table.amount}) - length(replace(${table.amount}, '.', '')) <= 1 AND substr(${table.amount}, -1) <> '.' AND CAST(${table.amount} AS REAL) >= 0)`,
+    ),
+    check(
+      'inventory_batches_status_check',
+      sql`${table.status} IN ('available','exhausted','discarded','deleted')`,
+    ),
+    check(
+      'inventory_batches_exhausted_check',
+      sql`${table.status} <> 'exhausted' OR (${table.quantityKnown} = 1 AND CAST(${table.amount} AS REAL) = 0)`,
+    ),
+    check(
+      'inventory_batches_available_check',
+      sql`${table.status} <> 'available' OR ${table.quantityKnown} = 0 OR CAST(${table.amount} AS REAL) > 0`,
+    ),
+  ],
+);
+
+export type InventoryBatch = typeof inventoryBatches.$inferSelect;
+
+export const inventoryTransactions = sqliteTable(
+  'inventory_transactions',
+  {
+    sequence: integer('sequence').primaryKey({ autoIncrement: true }),
+    id: text('id').notNull().unique(),
+    operationId: text('operation_id').notNull().unique(),
+    batchId: text('batch_id')
+      .notNull()
+      .references(() => inventoryBatches.id, { onDelete: 'restrict' }),
+    type: text('type', {
+      enum: ['create', 'update', 'delete', 'undo'],
+    }).notNull(),
+    amountDelta: text('amount_delta'),
+    before: text('before', { mode: 'json' }).$type<InventoryBatch | null>(),
+    after: text('after', { mode: 'json' }).$type<InventoryBatch>().notNull(),
+    reversesOperationId: text('reverses_operation_id').unique(),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [
+    index('inventory_transactions_batch_idx').on(table.batchId),
+    check(
+      'inventory_transactions_type_check',
+      sql`${table.type} IN ('create','update','delete','undo')`,
+    ),
+  ],
+);
