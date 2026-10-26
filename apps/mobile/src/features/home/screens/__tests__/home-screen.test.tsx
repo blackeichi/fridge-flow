@@ -2,6 +2,10 @@ import { fireEvent, render } from '@testing-library/react-native';
 import { HomeScreen } from '../home-screen';
 import { useInventory } from '@/features/inventory/hooks/use-inventory';
 
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn() }) }));
+jest.mock('@/features/backup/services/use-backup-status', () => ({
+  useBackupStatus: () => null,
+}));
 jest.mock('@/features/inventory/hooks/use-inventory', () => ({
   useInventory: jest.fn(),
 }));

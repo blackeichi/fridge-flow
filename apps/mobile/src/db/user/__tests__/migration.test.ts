@@ -35,6 +35,7 @@ describe('user.db initial migration', () => {
 
     expect(rows.map(({ name }) => name)).toEqual([
       'app_profiles',
+      'backup_history',
       'containers',
       'inventory_batches',
       'inventory_transactions',
