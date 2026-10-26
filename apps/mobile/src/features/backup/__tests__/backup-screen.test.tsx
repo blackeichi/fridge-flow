@@ -5,7 +5,7 @@ import type { PreparedBackup } from '../domain/backup-format';
 
 jest.mock('expo-router', () => ({ useRouter: () => ({ back: jest.fn() }) }));
 jest.mock('../services/use-backup-status', () => ({
-  useBackupStatus: () => null,
+  useBackupStatus: () => ({ lastExport: null, loading: false, error: false }),
 }));
 jest.mock('../services/native-backup-service', () => ({
   nativeBackupService: {

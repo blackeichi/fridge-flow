@@ -1,10 +1,11 @@
 import { useRouter } from 'expo-router';
 import { useBackupStatus } from '@/features/backup/services/use-backup-status';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { BackupFreshness } from '@/features/backup/components/backup-freshness';
+import { useForegroundClock } from '@/shared/hooks/use-foreground-clock';
 import {
   ActivityIndicator,
   Alert,
-  AppState,
   FlatList,
   Pressable,
   ScrollView,
@@ -49,18 +50,8 @@ function InventoryScreen({ onRetry }: { onRetry: () => void }) {
   const [urgentOnly, setUrgentOnly] = useState(false);
   const [showExhausted, setShowExhausted] = useState(false);
   const [message, setMessage] = useState('');
-  const [clock, setClock] = useState(() => Date.now());
+  const clock = useForegroundClock();
   const today = localToday(new Date(clock));
-  useEffect(() => {
-    const timer = setInterval(() => setClock(Date.now()), 60_000);
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') setClock(Date.now());
-    });
-    return () => {
-      clearInterval(timer);
-      subscription.remove();
-    };
-  }, []);
 
   const spaces = Array.from(
     new Map(
@@ -211,13 +202,7 @@ function InventoryScreen({ onRetry }: { onRetry: () => void }) {
             >
               <View style={styles.titleText}>
                 <Text style={styles.link}>백업·복원</Text>
-                <Text style={styles.hint}>
-                  {!lastBackup
-                    ? '아직 백업이 없어요. 데이터를 보관해 주세요.'
-                    : clock - Date.parse(lastBackup) >= 7 * 86_400_000
-                      ? '마지막 백업 후 7일이 지났어요. 새 백업을 저장해 주세요.'
-                      : `최근 백업: ${new Date(lastBackup).toLocaleString()}`}
-                </Text>
+                <BackupFreshness status={lastBackup} now={clock} />
               </View>
             </Pressable>
             <TextInput
