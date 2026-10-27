@@ -197,6 +197,15 @@ function InventoryScreen({ onRetry }: { onRetry: () => void }) {
             </View>
             <Pressable
               accessibilityRole="button"
+              onPress={() => router.push('/storage')}
+              style={styles.undo}
+            >
+              <Text style={styles.link}>
+                보관 위치 편집 · 공간·선반·서랍 추가
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
               onPress={() => router.push('/backup')}
               style={styles.undo}
             >

@@ -61,6 +61,7 @@
     "testPathIgnorePatterns": [
       "/node_modules/",
       "/src/app/"
-    ]
+    ],
+    "maxWorkers": 2
   }
 }

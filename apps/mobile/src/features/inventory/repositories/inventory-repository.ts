@@ -1,3 +1,4 @@
+import { createStorageManagementRepository } from '@/features/storage/repositories/storage-management-repository';
 import { asc, desc, eq } from 'drizzle-orm';
 import { randomUUID } from 'expo-crypto';
 
@@ -64,68 +65,10 @@ export function createInventoryRepository(
 
   return {
     initializeLocations() {
-      database.transaction((tx) => {
-        const timestamp = now();
-        const templates = [
-          {
-            type: 'refrigerator' as const,
-            name: '냉장실',
-            names: ['냉장 선반', '문 선반', '야채 서랍'],
-          },
-          { type: 'freezer' as const, name: '냉동실', names: ['냉동 선반'] },
-          { type: 'pantry' as const, name: '실온/팬트리', names: ['팬트리'] },
-        ];
-        for (const [sortOrder, template] of templates.entries()) {
-          let space = tx
-            .select()
-            .from(storageSpaces)
-            .where(eq(storageSpaces.type, template.type))
-            .orderBy(asc(storageSpaces.sortOrder))
-            .get();
-          if (!space) {
-            // Existing user names are preserved; avoid a collision with another type.
-            const names = tx
-              .select()
-              .from(storageSpaces)
-              .all()
-              .map((item) => item.name);
-            let name = template.name;
-            let suffix = 2;
-            while (names.includes(name)) name = `${template.name} ${suffix++}`;
-            space = {
-              id: createId(),
-              name,
-              type: template.type,
-              sortOrder,
-              createdAt: timestamp,
-              updatedAt: timestamp,
-            };
-            tx.insert(storageSpaces).values(space).run();
-          }
-          if (
-            tx
-              .select()
-              .from(containers)
-              .where(eq(containers.spaceId, space.id))
-              .get()
-          )
-            continue;
-          for (const [index, name] of template.names.entries()) {
-            tx.insert(containers)
-              .values({
-                id: createId(),
-                spaceId: space.id,
-                name,
-                gridRow: index,
-                gridColumn: 0,
-                sortOrder: index,
-                createdAt: timestamp,
-                updatedAt: timestamp,
-              })
-              .run();
-          }
-        }
-      });
+      createStorageManagementRepository(database, {
+        createId,
+        now,
+      }).initializeDefaults();
     },
     create(input: InventoryInput, operationId = createId()) {
       const normalized = normalizeInventory(input);
@@ -203,6 +146,10 @@ export function createInventoryRepository(
 // Query builders stay in the repository layer; screens subscribe through the hook.
 export function inventoryQueries(database: UserDatabase) {
   return {
+    spaces: database
+      .select()
+      .from(storageSpaces)
+      .orderBy(asc(storageSpaces.sortOrder)),
     batches: database
       .select()
       .from(inventoryBatches)
@@ -211,6 +158,7 @@ export function inventoryQueries(database: UserDatabase) {
       .select({
         id: containers.id,
         name: containers.name,
+        parentId: containers.parentId,
         spaceName: storageSpaces.name,
         spaceId: storageSpaces.id,
       })
