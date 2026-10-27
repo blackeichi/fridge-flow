@@ -2,7 +2,7 @@
 
 - 문서 상태: 초안 v0.7
 - 작성일: 2026-07-29
-- 최종 수정일: 2026-10-26
+- 최종 수정일: 2026-10-27
 - 전제: `PRODUCT_SPEC.md`의 개인·지인용 Android MVP를 구현하기 위한 현재 설계
 
 ## 1. 설계 목표
@@ -170,7 +170,7 @@ Google 로그인 client, 로그인 gate와 `LocalOwner` binding repository도 �
 - 구매일과 유통기한은 검증된 `YYYY-MM-DD` 또는 `NULL`이다. 기기 현지 날짜와 date-only UTC 일수 차로 임박 구간을 계산한다. 분 단위 및 앱 복귀 시 오늘 날짜를 갱신한다.
 - repository는 동기 SQLite transaction에서 묶음과 append-only 변경 기록을 함께 쓴다. 동일 `operation_id`는 unique constraint로 전체 rollback한다. Expo SQLite와 테스트용 better-sqlite3의 Drizzle 동기 API를 사용한다.
 - 거래에 before/after snapshot, 같은 단위의 정확한 scaled-integer `amount_delta`, `operation_id`를 기록한다. 단위 변경·수량 모름의 delta는 `NULL`이다. 삭제는 수량을 차감하지 않고 상태만 `deleted`로 바꾸며 원본·기록을 보존한다.
-- undo는 반대 변경을 새 기록으로 추가한다. `last_operation_id` 검사로 이후 변경의 덮어쓰기를 막고, unique `reverses_operation_id`로 이중 취소를 막는다. 기본 UI는 가장 최근 변경 하나만 노출하며 전체 활동 기록·조리 차감은 후속 범위다.
+- undo는 반대 변경을 새 기록으로 추가한다. `last_operation_id` 검사로 이후 변경의 덮어쓰기를 막고, unique `reverses_operation_id`로 이중 취소를 막는다. 홈은 가장 최근 변경 하나를 노출하며 2026-10-27에 재고 변경 이력 화면을 추가했다. 조리 차감과 다른 도메인의 전체 활동 기록은 후속 범위다.
 - feature hook이 repository query builder를 `useLiveQuery`로 구독한다. 화면은 SQL을 실행하거나 DB 결과를 전역 상태에 복제하지 않는다.
 - 첫 진입 시 기본 위치를 하나의 transaction으로 초기화한다. 이미 존재하는 공간 유형과 컨테이너는 재사용하며 사용자 이름·배치를 덮어쓰지 않는다. 빈 공간에만 기본 컨테이너를 넣어 재실행 중복을 방지한다.
 - 이번 단계는 새 의존성을 추가하지 않는다. Android development build와 Google Cloud OAuth 설정을 포함한 실제 기기 E2E는 별도 검증이 필요하다. 기존 Google 로그인 config plugin의 설정 누락으로 막혔던 Android export는 아래 개발 빌드 구성 작업에서 해결한다.
@@ -187,6 +187,16 @@ Google 로그인 client, 로그인 gate와 `LocalOwner` binding repository도 �
 - Drizzle useLiveQuery가 join의 첫 테이블만 관찰하므로 재고의 위치 조회는 StorageSpace도 구독한다. 공간 이름만 바뀌어도 위치를 재조회하고, 중첩 보관함은 전체 이름 경로로 표시해 같은 이름을 구분한다.
 - Jest worker는 2개로 제한한다. 실행 환경이 많은 가상 코어를 보고해 UI suite를 과도하게 동시에 실행할 때 발생하는 초기 로딩 timeout을 피하며 기존 테스트 제한 시간과 assertion은 유지한다.
 - SQLite integration test에서 초기화 재실행·중복 공간 거부·좌표와 계층 검증·재고와 거래 불변·오래된 undo 거부·백업 round trip을 확인한다. Android 실기기의 터치·접근성 검증은 별도로 필요하다.
+
+#### 2026-10-27 재고 변경 이력 구현과 결정 기록
+
+- `/history`는 기존 InventoryTransaction snapshot을 원본으로 조회한다. 새 저장 필드·migration·의존성·백업 format 변경은 없다. 백업 복원·재시작 후에도 같은 기록을 사용한다.
+- query builder는 거래를 첫 테이블로 두고 현재 InventoryBatch.lastOperationId와 reversesOperationId로 self left join한 취소 기록을 함께 읽는다. sequence 내림차순으로 최근 적용 순서를 보존하며 동일 시각 기록도 안정적으로 정렬한다. useLiveQuery가 거래 변경을 관찰해 취소와 복원 뒤 목록을 갱신한다. 위치는 Container와 StorageSpace를 별도로 구독해 현재 전체 경로를 표시한다.
+- 초기 limit 30에 한 건을 추가 조회해 더 보기 여부를 판정하고 요청 시 30씩 늘린다. 조회 결과를 전역 상태나 별도 영속 목록에 복제하지 않으며 FlatList로 표시한다. UI는 선택한 operation ID와 펼침 상태만 보관한다.
+- 순수 함수에서 전후 이름·수량과 단위·위치 ID·달력 날짜·메모·상태를 비교한다. 수량 모름과 단위 변경을 자동 환산하지 않으며 삭제를 소비 차감으로 표현하지 않는다. 위치 이름은 현재 이름이며 과거 이름을 보존한 것처럼 표시하지 않는다.
+- 화면과 repository가 동일한 undo 판정을 사용한다. 7일은 timestamp 차 168시간이며 정확한 경계는 허용하고 이후는 거부한다. 미래·잘못된 시각, undo 자체, 기존 취소, 같은 묶음의 이후 변경은 취소를 막는다. 원본과 취소 기록은 모두 보존한다.
+- 확인 시 repository의 단일 동기 SQLite transaction 안에서 원본 거래·현재 묶음·취소 여부·시각을 다시 검사하고 묶음 복구와 반대 기록을 함께 쓴다. unique operation/reversal 제약과 rollback을 유지한다. 조회 실패 중에는 확인 버튼을 비활성화하며 화면과 다른 최신 변경이 있으면 현재 데이터를 보존하고 이유를 표시한다.
+- 실 SQLite 테스트는 첫 페이지 밖 기록·동일 시각 순서·다른 묶음 변경과 독립적인 취소·중복/오래된 취소·7일 경계·미래 시각·기록 삽입 실패 rollback을 확인한다. 화면 테스트는 내용 확인·취소·확인·오류·빈 상태·더 보기를 확인한다. 실제 Android 터치·접근성·백그라운드 복귀 검증은 별도다.
 
 ### 5.1 `user.db` 원본
 

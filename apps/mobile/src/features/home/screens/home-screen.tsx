@@ -214,6 +214,13 @@ function InventoryScreen({ onRetry }: { onRetry: () => void }) {
                 <BackupFreshness status={lastBackup} now={clock} />
               </View>
             </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push('/history')}
+              style={styles.action}
+            >
+              <Text style={styles.link}>재고 변경 이력</Text>
+            </Pressable>
             <TextInput
               accessibilityLabel="재료 검색"
               placeholder="재료 이름으로 검색"
