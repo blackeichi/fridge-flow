@@ -13,7 +13,13 @@ const mockedInventory = jest.mocked(useInventory);
 const create = jest.fn();
 const update = jest.fn();
 const locations = [
-  { id: 'shelf', name: '냉장 선반', spaceName: '냉장실', spaceId: 'fridge' },
+  {
+    id: 'shelf',
+    name: '냉장 선반',
+    spaceName: '냉장실',
+    spaceId: 'fridge',
+    parentId: null,
+  },
 ];
 
 beforeEach(() => {
@@ -100,6 +106,7 @@ describe('HomeScreen inventory flow', () => {
         ...locations,
         {
           id: 'drawer',
+          parentId: null,
           name: '야채 서랍',
           spaceId: 'fridge',
           spaceName: '냉장실',
