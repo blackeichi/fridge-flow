@@ -2,7 +2,8 @@ import { fireEvent, render } from '@testing-library/react-native';
 import { HomeScreen } from '../home-screen';
 import { useInventory } from '@/features/inventory/hooks/use-inventory';
 
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn() }) }));
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 jest.mock('@/features/backup/services/use-backup-status', () => ({
   useBackupStatus: () => ({ lastExport: null, loading: false, error: false }),
 }));
@@ -132,4 +133,10 @@ describe('HomeScreen inventory flow', () => {
       }),
     );
   });
+});
+
+it('opens inventory history from the fridge', async () => {
+  const screen = await render(<HomeScreen />);
+  await fireEvent.press(screen.getByText('재고 변경 이력'));
+  expect(mockPush).toHaveBeenCalledWith('/history');
 });

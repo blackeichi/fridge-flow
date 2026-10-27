@@ -215,3 +215,5 @@ export const backupHistory = sqliteTable('backup_history', {
   checksum: text('checksum').notNull(),
   safetyDatabaseName: text('safety_database_name'),
 });
+
+export type InventoryTransaction = typeof inventoryTransactions.$inferSelect;
