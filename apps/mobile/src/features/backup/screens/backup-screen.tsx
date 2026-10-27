@@ -1,3 +1,4 @@
+import { useRecoveryPoints } from '../services/use-recovery-points';
 import { useRef, useState } from 'react';
 import { BackupFreshness } from '../components/backup-freshness';
 import { useForegroundClock } from '@/shared/hooks/use-foreground-clock';
@@ -20,6 +21,8 @@ import { useBackupStatus } from '../services/use-backup-status';
 export function BackupScreen() {
   const router = useRouter();
   const lastExport = useBackupStatus();
+  const recovery = useRecoveryPoints();
+  const [source, setSource] = useState<'file' | 'safety'>('file');
   const now = useForegroundClock();
   const [pending, setPending] = useState<PreparedBackup | null>(null);
   const [busy, setBusy] = useState(false);
@@ -98,6 +101,7 @@ export function BackupScreen() {
               run(async () => {
                 const backup = await nativeBackupService.prepareRestore();
                 setPending(backup);
+                setSource('file');
                 if (!backup) setMessage('파일 선택을 취소했습니다.');
               })
             }
@@ -106,13 +110,60 @@ export function BackupScreen() {
             <Text style={styles.link}>백업 파일 선택</Text>
           </Pressable>
         </View>
+        <View style={styles.card}>
+          <Text style={styles.heading}>복원 전 데이터로 돌아가기</Text>
+          <Text style={styles.description}>
+            이 기기에서 복원 직전에 만든 안전 사본입니다. 선택하면 해당 복원
+            시각과 건수를 먼저 확인할 수 있습니다.
+          </Text>
+          {recovery.loading ? (
+            <Text style={styles.description}>
+              안전 사본 기록을 확인하고 있습니다.
+            </Text>
+          ) : recovery.error ? (
+            <Text accessibilityRole="alert" style={styles.description}>
+              안전 사본 기록을 불러오지 못했습니다. 화면을 다시 열어 주세요.
+            </Text>
+          ) : !recovery.points.length ? (
+            <Text style={styles.description}>
+              아직 안전 사본이 없습니다. 백업을 복원하면 자동으로 만듭니다.
+            </Text>
+          ) : (
+            recovery.points.map((point) => (
+              <Pressable
+                key={point.id}
+                accessibilityRole="button"
+                disabled={busy || !!pending}
+                style={styles.secondary}
+                onPress={() =>
+                  run(async () => {
+                    const backup = await nativeBackupService.prepareRecovery(
+                      point.id,
+                    );
+                    setPending(backup);
+                    setSource('safety');
+                  })
+                }
+              >
+                <Text style={styles.link}>
+                  {new Date(point.createdAt).toLocaleString()} 복원 전 사본
+                </Text>
+                <Text style={styles.description}>내용 확인</Text>
+              </Pressable>
+            ))
+          )}
+          <Text style={styles.description}>
+            기기 내부 사본은 앱 삭제·기기 분실에 대비한 외부 백업을 대신하지
+            않습니다.
+          </Text>
+        </View>
         {pending && (
           <View style={styles.card}>
             <Text accessibilityRole="header" style={styles.heading}>
-              복원 내용 확인
+              {source === 'safety' ? '안전 사본 복구 확인' : '복원 내용 확인'}
             </Text>
             <Text style={styles.description}>
-              백업 시각:{' '}
+              {source === 'safety' ? '복원 기록 시각:' : '백업 시각:'}{' '}
               {new Date(pending.manifest.created_at).toLocaleString()}
             </Text>
             <Text style={styles.description}>
@@ -132,13 +183,19 @@ export function BackupScreen() {
                   await nativeBackupService.restore(pending);
                   setPending(null);
                   setMessage(
-                    '복원했습니다. 냉장고에서 데이터를 확인해 주세요.',
+                    source === 'safety'
+                      ? '복원 전 데이터로 되돌렸습니다. 되돌리기 직전 데이터의 안전 사본도 새로 보관했습니다.'
+                      : '복원했습니다. 냉장고에서 데이터를 확인해 주세요.',
                   );
                 })
               }
               style={styles.primary}
             >
-              <Text style={styles.primaryText}>현재 데이터 전체 교체 복원</Text>
+              <Text style={styles.primaryText}>
+                {source === 'safety'
+                  ? '안전 사본으로 전체 교체'
+                  : '현재 데이터 전체 교체 복원'}
+              </Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"

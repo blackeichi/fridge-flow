@@ -1,3 +1,4 @@
+import { validateSafetyDatabaseName } from '../domain/safety-recovery';
 import {
   backupFilename,
   decodeBackup,
@@ -17,11 +18,15 @@ export interface RestoreStaging {
   validate(data: BackupData): Promise<void>;
   safetySnapshot(): string;
 }
+export interface SafetyRecoveryReader {
+  read(name: string, owner: string): Promise<BackupData>;
+}
 export function createBackupService(
   repository: BackupRepository,
   files: BackupFiles,
   staging: RestoreStaging,
   sha256: Sha256,
+  recovery?: SafetyRecoveryReader,
 ) {
   let busy = false;
   async function exclusive<T>(work: () => Promise<T>): Promise<T> {
@@ -53,6 +58,21 @@ export function createBackupService(
         const text = await files.open();
         if (text === null) return null;
         return decodeBackup(text, repository.owner().ownerSubSha256, sha256);
+      }),
+    prepareRecovery: (pointId: string) =>
+      exclusive(async () => {
+        if (!recovery)
+          throw new BackupError(
+            '이 환경에서는 기기 안전 사본을 읽을 수 없습니다.',
+          );
+        const point = repository.recoveryPoint(pointId);
+        const name = validateSafetyDatabaseName(point.databaseName);
+        const owner = repository.owner().ownerSubSha256;
+        const data = await recovery.read(name, owner);
+        if (repository.owner().ownerSubSha256 !== owner)
+          throw new BackupError('연결 계정이 변경되어 복구를 중단했습니다.');
+        // Use the same bounded, versioned validation and confirmation path as a file restore.
+        return encodeBackup(data, owner, sha256, point.createdAt);
       }),
     restore: (prepared: PreparedBackup) =>
       exclusive(async () => {
