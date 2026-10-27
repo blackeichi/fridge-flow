@@ -1,4 +1,4 @@
-import { desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, sql } from 'drizzle-orm';
 import { randomUUID } from 'expo-crypto';
 import type { UserDatabase } from '@/db/user/client';
 import {
@@ -23,6 +23,26 @@ export function createBackupRepository(database: UserDatabase) {
       if (owners.length !== 1)
         throw new BackupError('먼저 Google 계정을 연결해 주세요.');
       return owners[0];
+    },
+    recoveryPoint(id: string) {
+      const point = database
+        .select()
+        .from(backupHistory)
+        .where(
+          and(
+            eq(backupHistory.id, id),
+            eq(backupHistory.action, 'restore'),
+            isNotNull(backupHistory.safetyDatabaseName),
+          ),
+        )
+        .get();
+      if (!point?.safetyDatabaseName)
+        throw new BackupError('복구할 안전 사본 기록을 찾을 수 없습니다.');
+      return {
+        id: point.id,
+        createdAt: point.createdAt,
+        databaseName: point.safetyDatabaseName,
+      };
     },
     snapshot(): BackupData {
       return validateBackupData(
@@ -108,4 +128,16 @@ export const lastExportQuery = (database: UserDatabase) =>
     .where(eq(backupHistory.action, 'export'))
     .orderBy(desc(backupHistory.createdAt))
     .limit(1);
+export const recoveryPointsQuery = (database: UserDatabase) =>
+  database
+    .select({ id: backupHistory.id, createdAt: backupHistory.createdAt })
+    .from(backupHistory)
+    .where(
+      and(
+        eq(backupHistory.action, 'restore'),
+        isNotNull(backupHistory.safetyDatabaseName),
+      ),
+    )
+    .orderBy(desc(backupHistory.createdAt), desc(backupHistory.id));
+export type RecoveryPoint = { id: string; createdAt: string };
 export type BackupRepository = ReturnType<typeof createBackupRepository>;

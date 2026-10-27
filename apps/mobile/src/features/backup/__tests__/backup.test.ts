@@ -255,3 +255,93 @@ describe('restore transactions', () => {
     sqlite.close();
   });
 });
+
+describe('safety copy recovery', () => {
+  it('previews without mutation and keeps a new recovery point before applying or re-applying data', async () => {
+    const { sqlite, db, repository, inventory, batch } = setup();
+    const original = repository.snapshot();
+    const firstName = `pre-restore-${randomUUID()}.db`;
+    const saved = new Map<string, BackupData>([[firstName, original]]);
+    repository.record('restore', 'b'.repeat(64), firstName);
+    const firstPoint = db.select().from(schema.backupHistory).all()[0];
+    inventory.remove(batch.id);
+    const changed = repository.snapshot();
+    const safetySnapshot = jest.fn(() => {
+      const name = `pre-restore-${randomUUID()}.db`;
+      saved.set(name, repository.snapshot());
+      return name;
+    });
+    const read = jest.fn(async (name: string, expectedOwner: string) => {
+      expect(expectedOwner).toBe(owner);
+      const data = saved.get(name);
+      if (!data) throw new Error('missing safety copy');
+      return data;
+    });
+    const service = createBackupService(
+      repository,
+      { save: jest.fn(), open: async () => null },
+      { validate: async () => {}, safetySnapshot },
+      sha,
+      { read },
+    );
+    const prepared = await service.prepareRecovery(firstPoint.id);
+    expect(repository.snapshot()).toEqual(changed);
+    expect(safetySnapshot).not.toHaveBeenCalled();
+    await service.restore(prepared);
+    expect(repository.snapshot()).toEqual(original);
+    const secondPoint = db
+      .select()
+      .from(schema.backupHistory)
+      .all()
+      .find((point) => point.id !== firstPoint.id)!;
+    expect(saved.get(secondPoint.safetyDatabaseName!)).toEqual(changed);
+    await service.restore(await service.prepareRecovery(secondPoint.id));
+    expect(repository.snapshot()).toEqual(changed);
+    expect(db.select().from(schema.backupHistory).all()).toHaveLength(3);
+    sqlite.close();
+  });
+  it('refuses missing records and unsafe file names before calling the native reader', async () => {
+    const { sqlite, db, repository } = setup();
+    const read = jest.fn();
+    const service = createBackupService(
+      repository,
+      { save: jest.fn(), open: async () => null },
+      { validate: async () => {}, safetySnapshot: () => '' },
+      sha,
+      { read },
+    );
+    await expect(service.prepareRecovery('missing')).rejects.toThrow('기록');
+    repository.record('restore', 'b'.repeat(64), '../user.db');
+    const point = db.select().from(schema.backupHistory).all()[0];
+    await expect(service.prepareRecovery(point.id)).rejects.toThrow('올바른');
+    expect(read).not.toHaveBeenCalled();
+    sqlite.close();
+  });
+  it('aborts if the linked account changes while reading a safety copy', async () => {
+    const { sqlite, db, repository } = setup();
+    const snapshot = repository.snapshot();
+    repository.record(
+      'restore',
+      'b'.repeat(64),
+      `pre-restore-${randomUUID()}.db`,
+    );
+    const point = db.select().from(schema.backupHistory).all()[0];
+    const initialOwner = repository.owner();
+    jest
+      .spyOn(repository, 'owner')
+      .mockReturnValueOnce(initialOwner)
+      .mockReturnValueOnce({ ...initialOwner, ownerSubSha256: 'b'.repeat(64) });
+    const service = createBackupService(
+      repository,
+      { save: jest.fn(), open: async () => null },
+      { validate: async () => {}, safetySnapshot: () => '' },
+      sha,
+      { read: async () => snapshot },
+    );
+    await expect(service.prepareRecovery(point.id)).rejects.toThrow(
+      '연결 계정',
+    );
+    expect(repository.snapshot()).toEqual(snapshot);
+    sqlite.close();
+  });
+});

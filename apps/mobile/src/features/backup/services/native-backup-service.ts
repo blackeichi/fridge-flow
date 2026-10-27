@@ -1,3 +1,4 @@
+import { sqliteSafetyRecovery } from '../adapters/sqlite-safety-recovery';
 import { CryptoDigestAlgorithm, digestStringAsync } from 'expo-crypto';
 import { userDatabase } from '@/db/user/client';
 import { androidBackupFiles } from '../adapters/android-backup-files';
@@ -10,4 +11,5 @@ export const nativeBackupService = createBackupService(
   androidBackupFiles,
   sqliteRestoreStaging,
   (value) => digestStringAsync(CryptoDigestAlgorithm.SHA256, value),
+  sqliteSafetyRecovery,
 );
